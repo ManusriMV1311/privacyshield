@@ -1,0 +1,21 @@
+{
+  "name": "privacyshield-extension",
+  "version": "1.0.0",
+  "description": "PrivacyShield Client Extension - Manifest V3 Core Runtime",
+  "main": "dist/content/content.js",
+  "scripts": {
+    "dev": "vite build --config vite.config.content.ts --watch",
+    "clean": "rimraf dist",
+    "type-check": "tsc --noEmit",
+    "build:content": "vite build --config vite.config.content.ts",
+    "build:background": "vite build --config vite.config.background.ts",
+    "validate": "node validate-build.js",
+    "build": "npm run clean && npm run type-check && npm run build:content && npm run build:background && npm run validate"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.42",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
+  }
+}
