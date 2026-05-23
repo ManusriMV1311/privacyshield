@@ -1,0 +1,115 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum TelemetryType {
+  SCREENSHOT_ATTEMPT
+  WINDOW_BLUR
+  RAPID_FOCUS_SWITCH
+  TAMPERING_DETECTED
+  TAB_HIDDEN
+  MEDIA_DETECTED
+  OVERLAY_ACTIVATED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(ADMIN)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id               String               @id @default(uuid())
+  userId           String?
+  user             User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionToken     String               @unique
+  deviceMetadata   Json?
+  extensionVersion String
+  active           Boolean              @default(true)
+  riskScore        Int                  @default(0)
+  protectionLvl    Int                  @default(1)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  telemetryEvents  TelemetryEvent[]
+  riskScores       RiskScoreHistory[]
+  watermark        WatermarkMetadata?
+
+  @@index([userId])
+  @@index([sessionToken])
+  @@map("sessions")
+}
+
+model TelemetryEvent {
+  id         String        @id @default(uuid())
+  sessionId  String
+  session    Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  eventType  TelemetryType
+  severity   Int
+  metadata   Json
+  occurredAt DateTime
+  createdAt  DateTime      @default(now())
+
+  @@index([sessionId])
+  @@index([eventType])
+  @@index([occurredAt])
+  @@map("telemetry_events")
+}
+
+model RiskScoreHistory {
+  id            String   @id @default(uuid())
+  sessionId     String
+  session       Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  previousScore Int
+  newScore      Int
+  changeReason  String
+  createdAt     DateTime @default(now())
+
+  @@index([sessionId])
+  @@map("risk_score_history")
+}
+
+model WatermarkMetadata {
+  id             String   @id @default(uuid())
+  sessionId      String   @unique
+  session        Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userHash       String
+  watermarkToken String   @unique
+  createdAt      DateTime @default(now())
+
+  @@map("watermark_metadata")
+}
+
+model PolicyConfiguration {
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  blurRadius         Int      @default(15)
+  transitionSpeedMs  Int      @default(150)
+  lockoutMessage     String   @default("🔒 Protected Surface View Lockout. Unfocus detected or capture key clicked.")
+  watermarkOpacity   Float    @default(0.08)
+  watermarkRotation  Int      @default(-25)
+  watermarkFontSize  Int      @default(13)
+  watermarkDensity   String   @default("medium")
+  escalationThreshold2 Int    @default(20)
+  escalationThreshold3 Int    @default(50)
+  escalationThreshold4 Int    @default(80)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("policy_configurations")
+}

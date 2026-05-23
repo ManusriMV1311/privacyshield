@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: privacyshield_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: privacyshield_user
+      POSTGRES_PASSWORD: secure_db_pass_9988
+      POSTGRES_DB: privacyshield_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U privacyshield_user -d privacyshield_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend_server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: privacyshield_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      DATABASE_URL: postgresql://privacyshield_user:secure_db_pass_9988@postgres_db:5432/privacyshield_db?schema=public
+      JWT_ACCESS_SECRET: access_token_super_secret_key_12345
+      JWT_REFRESH_SECRET: refresh_token_super_secret_key_67890
+      CORS_ORIGIN: "*"
+      RATE_LIMIT_MAX: 200
+      RATE_LIMIT_WINDOW_MS: 60000
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    # Auto-pushes Prisma models, seeds defaults, and boots TypeScript watch server in local dev
+    command: >
+      sh -c "npx prisma db push &&
+             npx prisma db seed &&
+             npm run dev"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+volumes:
+  postgres_data:
+    driver: local
